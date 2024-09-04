@@ -31,4 +31,4 @@ jobs:
     # run the library's tests
     -
       name: run tests
-      run: pytest tests/
+      run: python -m pytest tests/

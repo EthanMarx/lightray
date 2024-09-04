@@ -6,7 +6,7 @@ import yaml
 from raylightning import utils
 
 
-def test_get_host_cli(cli):
+def test_get_host_cli(dummy_cli):
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".yaml")
     content = {
         "data": {
@@ -18,7 +18,7 @@ def test_get_host_cli(cli):
     with open(temp.name, "w") as file:
         yaml.dump(content, file)
         args = ["--config", temp.name]
-        cli = utils.get_host_cli(cli)
+        cli = utils.get_host_cli(dummy_cli)
         cli = cli(run=False, args=args)
         assert cli.config["model"]["init_args"]["argument"] == 1
 
