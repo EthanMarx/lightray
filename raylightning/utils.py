@@ -1,33 +1,14 @@
 """
 Hyperparameter tuning utilities based largely on this tutorial
 https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html
-
-since the APIs used in this tutorial
-https://docs.ray.io/en/latest/tune/examples/tune-vanilla-pytorch-lightning.html
-
-are out of date with the latest version of lightning.
-(They import `from pytorch_lightning`, which doesn't
-play well with the `from lightning import pytorch`, the
-modern syntax that we use. This is insane, of course, but
-that's just the way it is.)
-
-The downside is that I can't figure out how to get local
-tune jobs to use the correct `gpus_per_worker`. In my local
-tests, one job just claims all the available GPUs no matter
-what. This doesn't seem to be a problem for remote, which
-is the use case we're largely targeting anyway, so I'm not
-freaking out about it. But it would be nice to figure this out.
-Unfortunately it does not seem as if this is a heavily trafficked
-API, at least not the latest version, and so I've had some
-difficulty finding resources from other people dealing with
-this issue.
 """
+
 
 import importlib
 import math
 import os
 from tempfile import NamedTemporaryFile
-from typing import List, Optional
+from typing import Any, List, Optional, Type, Union
 
 import lightning.pytorch as pl
 import pyarrow.fs
@@ -45,7 +26,7 @@ from ray.train.torch import TorchTrainer
 from raylightning.callbacks import RayTrainReportCallback
 
 
-def get_host_cli(cli: LightningCLI):
+def get_host_cli(cli: Type[LightningCLI]):
     """
     Return a LightningCLI class that will utilize
     the `cli` class passed as a parent class
@@ -69,7 +50,8 @@ def get_host_cli(cli: LightningCLI):
 
 
 def get_worker_cli(
-    cli: LightningCLI, callbacks: Optional[List[pl.callbacks.Callbakcs]] = None
+    cli: Type[LightningCLI],
+    callbacks: Optional[List[pl.callbacks.Callback]] = None,
 ):
     """
     Return a LightningCLI class that will actually execute
@@ -93,7 +75,10 @@ def get_worker_cli(
     return WorkerCLI
 
 
-def get_search_space(search_space: str):
+def get_search_space(search_space: Union[str, dict]) -> dict[str, callable]:
+    if isinstance(search_space, dict):
+        return search_space
+
     # determine if the path is a file path or a module path
     if os.path.isfile(search_space):
         # load the module from the file
@@ -141,12 +126,28 @@ class TrainFunc:
     randomly chosen by W&B.
     """
 
-    def __init__(self, cli: LightningCLI, name: str, config: dict) -> None:
+    def __init__(
+        self, cli: Type[LightningCLI], name: str, config: dict
+    ) -> None:
         self.cli = cli
         self.name = name
         self.config = config
 
-    def __call__(self, config):
+    def validate_logger(self, args):
+        try:
+            logger = self.config["trainer"]["logger"]
+        except KeyError:
+            logger = None
+
+        if logger is not None:
+            if "WandbLogger" not in logger:
+                raise ValueError(
+                    "Only W&B logging is supported for distributed tuning"
+                )
+            args.append(f"--trainer.logger.group={self.name}")
+        return args
+
+    def __call__(self, hparams: dict[str, Any]):
         """
         Dump the config to a file, then parse it
         along with the hyperparameter configuration
@@ -154,15 +155,15 @@ class TrainFunc:
         """
 
         with NamedTemporaryFile(mode="w") as f:
+            # dump the core config,
+            # then add the hyperparameters
             yaml.dump(self.config, f)
             args = ["-c", f.name]
-            for key, value in config.items():
+            for key, value in hparams.items():
                 args.append(f"--{key}={value}")
 
-            # TODO: this is technically W&B specific,
-            # but if we're distributed tuning I don't
-            # really know what other logger we would use
-            args.append(f"--trainer.logger.group={self.name}")
+            args = self.validate_logger(args)
+
             cli_cls = get_worker_cli(self.cli)
             cli = cli_cls(
                 run=False, args=args, save_config_kwargs={"overwrite": True}
@@ -182,8 +183,6 @@ class TrainFunc:
                 ckpt_prefix, checkpoint.path, "checkpoint.ckpt"
             )
 
-        # I have no idea what this `prepare_trainer`
-        # ray method does but they say to do it so :shrug:
         trainer = prepare_trainer(cli.trainer)
         trainer.fit(cli.model, cli.datamodule, ckpt_path=ckpt_path)
 
@@ -215,7 +214,8 @@ def configure_deployment(
         gpus_per_worker:
             Number of GPUs to train over within each worker
         cpus_per_gpu:
-            Number of CPUs to attach to each GPU
+            Number of CPUs to attach to each GPU. If gpus_per_worker
+            is 0, this is interpretated as the number of CPUs per worker
         objective:
             `"max"` or `"min"`, indicating how the indicated
             metric ought to be optimized
@@ -225,12 +225,17 @@ def configure_deployment(
         fs: Filesystem to use for storage
     """
 
-    cpus_per_worker = cpus_per_gpu * gpus_per_worker
+    if gpus_per_worker == 0:
+        cpus_per_worker = cpus_per_gpu
+    else:
+        cpus_per_worker = cpus_per_gpu * gpus_per_worker
+
+    use_gpu = gpus_per_worker > 0
     scaling_config = ScalingConfig(
         trainer_resources={"CPU": 0},
         resources_per_worker={"CPU": cpus_per_worker, "GPU": gpus_per_worker},
         num_workers=workers_per_trial,
-        use_gpu=True,
+        use_gpu=use_gpu,
     )
 
     run_config = RunConfig(

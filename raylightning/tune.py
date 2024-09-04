@@ -1,6 +1,7 @@
+import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Literal, Optional, Type, Union
 
 import ray
 import yaml
@@ -8,14 +9,15 @@ from ray import tune
 from ray.tune.schedulers import TrialScheduler
 
 from raylightning import utils
+from raylightning.fs import setup_filesystem
 
 if TYPE_CHECKING:
     from lightning.pytorch.cli import LightningCLI
 
 
-def main(
+def run(
     config: Path,
-    cli: "LightningCLI",
+    cli_cls: Type["LightningCLI"],
     name: str,
     metric_name: str,
     objective: Literal["min", "max"],
@@ -31,14 +33,17 @@ def main(
 ) -> tune.ResultGrid:
     # parse the training configuration file
     # using the user passed LightningCLI class;
-    host_cli = utils.get_host_cli(cli)
-    cli = host_cli(run=False)
-    config = cli.parser.dump(cli.config, format="yaml")
+    args = ["--config", str(config)]
+    host_cli = utils.get_host_cli(cli_cls)
+    host_cli = host_cli(run=False, args=args)
+    config = host_cli.parser.dump(host_cli.config, format="yaml")
     config = yaml.safe_load(config)
 
     # if specified, connect to a running ray cluster
     # otherwise, ray will assume one is running locally
+    logging.info("Initializing Ray")
     if address is not None:
+        logging.info(f"Connecting to Ray cluster at {address}")
         # ensure the ray adress starts with "ray://"
         if not address.startswith("ray://"):
             raise ValueError(
@@ -46,7 +51,8 @@ def main(
             )
     ray.init(address, _temp_dir=temp_dir)
 
-    internal_fs, external_fs = utils.setup_filesystem(storage_dir)
+    logging.info("Initializing checkpoint storage filesystems")
+    internal_fs, external_fs = setup_filesystem(str(storage_dir))
 
     # construct the function that will actually
     # execute the training loop, and then set it
@@ -54,7 +60,7 @@ def main(
     # with the desired number of resources allocated
     # to each running version of the job
     train_func = utils.configure_deployment(
-        utils.TrainFunc(cli, name, config),
+        utils.TrainFunc(cli_cls, name, config),
         metric_name=metric_name,
         workers_per_trial=workers_per_trial,
         gpus_per_worker=gpus_per_worker,
@@ -69,6 +75,7 @@ def main(
     # restore from a previous tuning run
     path = os.path.join(storage_dir, name)
     if tune.Tuner.can_restore(path, storage_filesystem=external_fs):
+        logging.info(f"Restoring from previous tuning run at {path}")
         tuner = tune.Tuner.restore(
             path,
             train_func,
@@ -90,6 +97,8 @@ def main(
                 trial_dirname_creator=lambda trial: f"{trial.trial_id}",
             ),
         )
+
+    logging.info("Starting tune job")
     results = tuner.fit()
 
     return results
