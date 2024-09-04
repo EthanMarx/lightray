@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ml4gw-tune"
+name = "raylightning"
 version = "0.1.0"
 description = "Ray Tune with LightningCLI"
 authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
