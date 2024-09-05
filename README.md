@@ -4,7 +4,7 @@ Easily integrate a `LightningCLI` with `RayTune` hyperparameter optimization
 ## Getting Started
 Extend your custom `LightningCLI` to a `Trainable` compatible with `RayTune`.
 
-Imagine you have a `LightningCLI` parser
+Imagine you have a `LightningCLI` parser for a 
 
 ```python
 from lightning.pytorch as pl
@@ -50,8 +50,11 @@ search_space = {
 # define scheduler
 scheduler = ASHAScheduler(max_t=50, grace_period=1, reduction_factor=2)
 
+# pass command line style arguments as if you were
+# running your `LightningCLI` from the command line
+args = ["--config", "/path/to/config.yaml"]
 results = run(
-    config=config,
+    args=args
     cli_cls=simple_cli,
     name="tune-test",
     metric="val_loss",
@@ -69,8 +72,3 @@ results = run(
 ```
 
 s3 storage works out of the box. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables set. Then, simply pass an s3 path (e.g. `s3://{bucket}/{folder}` to the `storage_dir` argument.
-
-
-## Helm Chart
-
-The repository also 

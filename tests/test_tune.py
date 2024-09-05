@@ -4,7 +4,7 @@ import pytest
 from ray import tune
 from ray.tune.schedulers import ASHAScheduler
 
-from raylightning.tune import run
+from lightray.tune import run
 
 
 @pytest.fixture
