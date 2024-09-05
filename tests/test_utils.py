@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from raylightning import utils
+from lightray import utils
 
 
 def test_get_host_cli(dummy_cli):

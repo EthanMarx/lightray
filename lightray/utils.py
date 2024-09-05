@@ -23,7 +23,7 @@ from ray.train.lightning import (
 )
 from ray.train.torch import TorchTrainer
 
-from raylightning.callbacks import RayTrainReportCallback
+from lightray.callbacks import RayTrainReportCallback
 
 
 def get_host_cli(cli: Type[LightningCLI]):

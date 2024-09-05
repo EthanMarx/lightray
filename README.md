@@ -1,4 +1,4 @@
-# raylightning
+# lightray
 Easily integrate a `LightningCLI` with `RayTune` hyperparameter optimization
 
 ## Getting Started

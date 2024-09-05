@@ -8,8 +8,8 @@ import ray
 from ray import tune
 from ray.tune.schedulers import TrialScheduler
 
-from raylightning import utils
-from raylightning.fs import setup_filesystem
+from lightray import utils
+from lightray.fs import setup_filesystem
 
 if TYPE_CHECKING:
     from lightning.pytorch.cli import LightningCLI
