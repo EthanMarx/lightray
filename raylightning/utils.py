@@ -7,6 +7,7 @@ https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html
 import importlib
 import math
 import os
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, List, Optional, Type, Union
 
@@ -257,3 +258,15 @@ def configure_deployment(
         scaling_config=scaling_config,
         run_config=run_config,
     )
+
+
+def parse_args(
+    cli_cls: Type[LightningCLI], config: Path, args: Optional[list[str]] = None
+):
+    args_ = ["--config", str(config)]
+    args_.extend(args or [])
+    host_cli = get_host_cli(cli_cls)
+    host_cli = host_cli(run=False, args=args_)
+    config = host_cli.parser.dump(host_cli.config, format="yaml")
+    config = yaml.safe_load(config)
+    return config

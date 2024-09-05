@@ -36,3 +36,17 @@ def test_get_search_space():
     # test passing a dictionary
     space = utils.get_search_space({"a": "b"})
     assert space["a"] == "b"
+
+
+def test_parse_args(simple_cli, config):
+    # test args from config file are parsed correctly
+    yaml = utils.parse_args(simple_cli, config)
+    assert yaml["model"]["init_args"]["hidden_size"] == 32
+    assert yaml["model"]["init_args"]["learning_rate"] == 0.01
+    assert yaml["data"]["init_args"]["data_dim"] == 10
+
+    # now test ability to override args
+    args = ["--model.init_args.hidden_size", "64"]
+    yaml = utils.parse_args(simple_cli, config, args)
+    assert yaml["model"]["init_args"]["hidden_size"] == 64
+    assert yaml["model"]["init_args"]["learning_rate"] == 0.01

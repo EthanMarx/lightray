@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Type, Union
 
 import ray
-import yaml
 from ray import tune
 from ray.tune.schedulers import TrialScheduler
 
@@ -30,14 +29,12 @@ def run(
     gpus_per_worker: float = 1.0,
     cpus_per_gpu: float = 1.0,
     temp_dir: Optional[str] = None,
+    args: Optional[list[str]] = None,
 ) -> tune.ResultGrid:
-    # parse the training configuration file
+    # parse the training configuration file, and
+    # any argument overrides
     # using the user passed LightningCLI class;
-    args = ["--config", str(config)]
-    host_cli = utils.get_host_cli(cli_cls)
-    host_cli = host_cli(run=False, args=args)
-    config = host_cli.parser.dump(host_cli.config, format="yaml")
-    config = yaml.safe_load(config)
+    config = utils.parse_args(cli_cls, config, args)
 
     # if specified, connect to a running ray cluster
     # otherwise, ray will assume one is running locally

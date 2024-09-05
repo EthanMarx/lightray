@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import lightning.pytorch as pl
 import pytest
 import torch
@@ -94,6 +96,11 @@ class SimpleModel(pl.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
+
+@pytest.fixture
+def config():
+    return Path(__file__).parent / "config.yaml"
 
 
 @pytest.fixture
