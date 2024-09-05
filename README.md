@@ -43,7 +43,7 @@ from raylightning import run
 
 # define search space
 search_space = {
-    "model.init_args.hidden_dim": tune.choice([32, 64])
+    "model.init_args.hidden_dim": tune.choice([32, 64]),
     "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-2)
 }
 
