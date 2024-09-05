@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, Type, Union
-
+import lightning.pytorch as pl
 import ray
 from ray import tune
 from ray.tune.schedulers import TrialScheduler
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 
 def run(
-    config: Path,
     cli_cls: Type["LightningCLI"],
     name: str,
     metric_name: str,
@@ -28,13 +27,14 @@ def run(
     workers_per_trial: int = 1,
     gpus_per_worker: float = 1.0,
     cpus_per_gpu: float = 1.0,
+    callbacks: Optional[list[pl.callbacks.Callback]] = None,
     temp_dir: Optional[str] = None,
     args: Optional[list[str]] = None,
 ) -> tune.ResultGrid:
     # parse the training configuration file, and
     # any argument overrides
     # using the user passed LightningCLI class;
-    config = utils.parse_args(cli_cls, config, args)
+    config = utils.parse_args(cli_cls, args)
 
     # if specified, connect to a running ray cluster
     # otherwise, ray will assume one is running locally
@@ -57,7 +57,7 @@ def run(
     # with the desired number of resources allocated
     # to each running version of the job
     train_func = utils.configure_deployment(
-        utils.TrainFunc(cli_cls, name, config),
+        utils.TrainFunc(cli_cls, name, config, callbacks),
         metric_name=metric_name,
         workers_per_trial=workers_per_trial,
         gpus_per_worker=gpus_per_worker,

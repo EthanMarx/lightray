@@ -39,14 +39,15 @@ def test_get_search_space():
 
 
 def test_parse_args(simple_cli, config):
+    args = ["--config", str(config)]
     # test args from config file are parsed correctly
-    yaml = utils.parse_args(simple_cli, config)
+    yaml = utils.parse_args(simple_cli, args)
     assert yaml["model"]["init_args"]["hidden_size"] == 32
     assert yaml["model"]["init_args"]["learning_rate"] == 0.01
     assert yaml["data"]["init_args"]["data_dim"] == 10
 
     # now test ability to override args
-    args = ["--model.init_args.hidden_size", "64"]
-    yaml = utils.parse_args(simple_cli, config, args)
+    args = ["--config", str(config), "--model.init_args.hidden_size", "64"]
+    yaml = utils.parse_args(simple_cli, args)
     assert yaml["model"]["init_args"]["hidden_size"] == 64
     assert yaml["model"]["init_args"]["learning_rate"] == 0.01

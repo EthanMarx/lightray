@@ -128,11 +128,16 @@ class TrainFunc:
     """
 
     def __init__(
-        self, cli: Type[LightningCLI], name: str, config: dict
+        self, 
+        cli: Type[LightningCLI], 
+        name: str, 
+        config: dict,
+        callbacks: Optional[list[pl.callbacks.Callback]] = None,
     ) -> None:
         self.cli = cli
         self.name = name
         self.config = config
+        self.callbacks = callbacks
 
     def validate_logger(self, args):
         try:
@@ -165,7 +170,7 @@ class TrainFunc:
 
             args = self.validate_logger(args)
 
-            cli_cls = get_worker_cli(self.cli)
+            cli_cls = get_worker_cli(self.cli, self.callbacks)
             cli = cli_cls(
                 run=False, args=args, save_config_kwargs={"overwrite": True}
             )
@@ -261,12 +266,13 @@ def configure_deployment(
 
 
 def parse_args(
-    cli_cls: Type[LightningCLI], config: Path, args: Optional[list[str]] = None
-):
-    args_ = ["--config", str(config)]
-    args_.extend(args or [])
+    cli_cls: Type[LightningCLI], args: Optional[list[str]] = None
+) -> dict:
+    """
+    Use a `LightningCLI` class to parse command line arguments
+    """
     host_cli = get_host_cli(cli_cls)
-    host_cli = host_cli(run=False, args=args_)
+    host_cli = host_cli(run=False, args=args)
     config = host_cli.parser.dump(host_cli.config, format="yaml")
     config = yaml.safe_load(config)
     return config

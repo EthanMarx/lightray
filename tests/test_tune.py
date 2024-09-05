@@ -31,9 +31,9 @@ def test_run(scheduler, config, storage_dir, simple_cli):
         "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-1),
     }
 
+    args = ["--config", str(config)]
     num_samples = 2
     results = run(
-        config,
         simple_cli,
         "tune-test",
         "val_loss",
@@ -47,6 +47,7 @@ def test_run(scheduler, config, storage_dir, simple_cli):
         gpus_per_worker=0.0,
         cpus_per_gpu=1.0,
         temp_dir=None,
+        args=args
     )
 
     assert len(results) == num_samples
