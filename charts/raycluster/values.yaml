@@ -9,6 +9,7 @@ gitRepo:
   url: git@github.com:ML4GW/aframev2.git
   mountPath: /opt
   ref: main
+  sshKey: ""
 
 head:
   cpu: "1"
