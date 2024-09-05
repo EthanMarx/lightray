@@ -47,7 +47,7 @@ def test_run(scheduler, config, storage_dir, simple_cli):
         gpus_per_worker=0.0,
         cpus_per_gpu=1.0,
         temp_dir=None,
-        args=args
+        args=args,
     )
 
     assert len(results) == num_samples

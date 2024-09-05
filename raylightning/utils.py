@@ -7,7 +7,6 @@ https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html
 import importlib
 import math
 import os
-from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any, List, Optional, Type, Union
 
@@ -128,9 +127,9 @@ class TrainFunc:
     """
 
     def __init__(
-        self, 
-        cli: Type[LightningCLI], 
-        name: str, 
+        self,
+        cli: Type[LightningCLI],
+        name: str,
         config: dict,
         callbacks: Optional[list[pl.callbacks.Callback]] = None,
     ) -> None:
