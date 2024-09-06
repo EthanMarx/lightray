@@ -102,13 +102,14 @@ def run(
     ray.init(address, _temp_dir=temp_dir)
 
     logging.info("Initializing checkpoint storage filesystems")
-    internal_fs, external_fs = setup_filesystem(str(storage_dir))
+    internal_fs, external_fs, storage_dir = setup_filesystem(str(storage_dir))
 
     # construct the function that will actually
     # execute the training loop, and then set it
     # up for Ray to distribute it over our cluster,
     # with the desired number of resources allocated
     # to each running version of the job
+
     train_func = utils.configure_deployment(
         utils.TrainFunc(cli_cls, name, config, callbacks),
         metric_name=metric_name,

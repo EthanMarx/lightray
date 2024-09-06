@@ -40,4 +40,4 @@ def setup_filesystem(
         external_fs = pyarrow.fs.PyFileSystem(
             pyarrow.fs.FSSpecHandler(external_fs)
         )
-    return internal_fs, external_fs
+    return internal_fs, external_fs, storage_dir
