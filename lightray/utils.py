@@ -144,17 +144,9 @@ class TrainFunc:
         self.callbacks = callbacks
 
     def validate_logger(self, args):
-        try:
-            logger = self.config["trainer"]["logger"]
-        except KeyError:
-            logger = None
-
-        if logger is not None:
-            if "WandbLogger" not in logger:
-                raise ValueError(
-                    "Only W&B logging is supported for distributed tuning"
-                )
-            args.append(f"--trainer.logger.group={self.name}")
+        # TODO: this only is relevant for WandB logger;
+        # should we have a more robust check for this?
+        args.append(f"--trainer.logger.group={self.name}")
         return args
 
     def __call__(self, hparams: dict[str, Any]):
