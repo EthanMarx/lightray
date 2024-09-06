@@ -51,14 +51,16 @@ def get_host_cli(cli: Type[LightningCLI]):
 
 def get_worker_cli(
     cli: Type[LightningCLI],
-    callbacks: Optional[List[pl.callbacks.Callback]] = None,
+    callbacks: Optional[List[Type[pl.callbacks.Callback]]] = None,
 ):
     """
     Return a LightningCLI class that will actually execute
     training runs on worker nodes
     """
 
-    callbacks = callbacks or [RayTrainReportCallback()]
+    # instantiate our callbacks
+    callbacks = callbacks or [RayTrainReportCallback]
+    callbacks = [cb() for cb in callbacks]
 
     class WorkerCLI(cli):
         def instantiate_trainer(self, **kwargs):

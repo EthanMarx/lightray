@@ -20,7 +20,7 @@ def run(
     name: str,
     metric_name: str,
     objective: Literal["min", "max"],
-    search_space: Union[dict, Path],
+    search_space: Union[dict, Path, str],
     scheduler: TrialScheduler,
     storage_dir: Optional[str] = None,
     address: Optional[str] = None,
@@ -28,10 +28,60 @@ def run(
     workers_per_trial: int = 1,
     gpus_per_worker: float = 1.0,
     cpus_per_gpu: float = 1.0,
-    callbacks: Optional[list[pl.callbacks.Callback]] = None,
+    callbacks: Optional[Type[pl.callbacks.Callback]] = None,
     temp_dir: Optional[str] = None,
     args: Optional[list[str]] = None,
 ) -> tune.ResultGrid:
+    """
+    Hyperparameter tune a LightningCLI with Ray Tune
+
+    Args:
+        cli_cls:
+            LightningCLI subclass to use for training
+        name:
+            Name of the tuning run
+        metric_name:
+            Name of the metric to optimize
+        objective:
+            Either "min" or "max", indicating whether
+            the metric should be minimized or maximized
+        search_space:
+            A dictionary, path to a python file containing
+            a dictionary named `space`, or a python module path
+            to import that contains a dictionary named `space`.
+            This dictionary should map the names of the arguments
+            of the `cli_cls` to the search space for that argument.
+        scheduler:
+            Ray Tune scheduler to use
+        storage_dir:
+            Directory to store Ray Tune logs and checkpoints
+        address:
+            Address of the Ray cluster to connect to. If None,
+            Ray will launch a local cluster.
+        num_samples:
+            Number of hyperparameter configurations to try
+        workers_per_trial:
+            Number of workers to deploy for each trial
+        gpus_per_worker:
+            Number of GPUs to attach to each worker
+        cpus_per_gpu:
+            Number of CPUs to attach to each GPU.
+            If `gpus_per_worker` is 0, this is interpreted
+            as the number of CPUs per worker.
+        callbacks:
+            Lightning `Callback` classes to attach
+            to each trials training loop.
+            These should be __classess__, not instances. They will
+            be instantiated during runtime for each trials so that
+            trial specific information can be used.
+        temp_dir:
+            Temporary directory to use for Ray Tune
+        args:
+            Arguments to pass to the LightningCLI. This should be a list
+            of command line style arguments,
+            e.g. `["--config", "/path/to/config.yaml"]`.
+    """
+
     # parse the training configuration file, and
     # any argument overrides
     # using the user passed LightningCLI class;
