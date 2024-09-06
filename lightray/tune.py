@@ -37,7 +37,7 @@ def run(
 
     Args:
         cli_cls:
-            LightningCLI subclass to use for training
+            LightningCLI subclass to use for each trials training
         name:
             Name of the tuning run
         metric_name:
@@ -73,7 +73,9 @@ def run(
             to each trials training loop.
             These should be __classess__, not instances. They will
             be instantiated during runtime for each trials so that
-            trial specific information can be used.
+            trial specific information can be used. A callback that
+            reports trial information to Ray Tune is automatically
+            added.
         temp_dir:
             Temporary directory to use for Ray Tune
         args:
@@ -148,7 +150,7 @@ def run(
 
     logging.info("Starting tune job")
     results = tuner.fit()
-
+    ray.shutdown()
     return results
 
 

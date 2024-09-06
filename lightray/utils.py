@@ -23,7 +23,7 @@ from ray.train.lightning import (
 )
 from ray.train.torch import TorchTrainer
 
-from lightray.callbacks import RayTrainReportCallback
+from lightray.callbacks import TrainReportCallback
 
 
 def get_host_cli(cli: Type[LightningCLI]):
@@ -59,7 +59,10 @@ def get_worker_cli(
     """
 
     # instantiate our callbacks
-    callbacks = callbacks or [RayTrainReportCallback]
+    if callbacks is not None:
+        callbacks.append(TrainReportCallback)
+    else:
+        callbacks = [TrainReportCallback]
     callbacks = [cb() for cb in callbacks]
 
     class WorkerCLI(cli):
