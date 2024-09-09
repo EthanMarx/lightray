@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lightray"
-version = "0.1.4"
+version = "0.1.5"
 description = "Distribute a LightningCLI hyperparameter search with Ray Tune"
 authors = ["Ethan Jacob Marx <ethan.marx@ligo.org>"]
 license = "MIT"
