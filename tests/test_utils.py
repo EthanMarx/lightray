@@ -39,7 +39,7 @@ def test_get_search_space():
 
 
 def test_parse_args(simple_cli, config):
-    args = ["--config", str(config)]
+    args = ["--config", str(config), "--trainer.logger.save_dir", "test"]
     # test args from config file are parsed correctly
     yaml = utils.parse_args(simple_cli, args)
     assert yaml["model"]["init_args"]["hidden_size"] == 32
@@ -47,7 +47,8 @@ def test_parse_args(simple_cli, config):
     assert yaml["data"]["init_args"]["data_dim"] == 10
 
     # now test ability to override args
-    args = ["--config", str(config), "--model.init_args.hidden_size", "64"]
+    args = ["--config", str(config), "--trainer.logger.save_dir", "test"]
+    args += ["--model.init_args.hidden_size", "64"]
     yaml = utils.parse_args(simple_cli, args)
     assert yaml["model"]["init_args"]["hidden_size"] == 64
     assert yaml["model"]["init_args"]["learning_rate"] == 0.01

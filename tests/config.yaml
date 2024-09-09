@@ -1,5 +1,9 @@
 trainer:
   max_epochs: 5
+  logger:
+    - class_path: lightning.pytorch.loggers.CSVLogger
+      init_args:
+        name: test
 
 data:
   class_path: tests.conftest.SimpleDataModule

@@ -33,6 +33,7 @@ def test_run(scheduler, config, storage_dir, simple_cli):
     }
 
     args = ["--config", str(config)]
+    args += ["--trainer.logger.save_dir", str(storage_dir)]
     num_samples = 2
     results = run(
         simple_cli,
@@ -61,6 +62,7 @@ def test_run_with_callback(scheduler, config, storage_dir, simple_cli):
     }
 
     args = ["--config", str(config)]
+    args += ["--trainer.logger.save_dir", str(storage_dir)]
     num_samples = 2
 
     # test run with dummy callback
