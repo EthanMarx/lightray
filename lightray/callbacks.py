@@ -60,4 +60,3 @@ class TrainReportCallback(RayTrainReportCallback):
 
         if self.local_rank == 0:
             shutil.rmtree(tmpdir)
-            shutil.rmtree(tmpdir)
