@@ -14,7 +14,7 @@ import lightning.pytorch as pl
 import pyarrow.fs
 import yaml
 from lightning.pytorch.cli import LightningCLI
-from ray import train
+from ray import train, tune
 from ray.train import CheckpointConfig, FailureConfig, RunConfig, ScalingConfig
 from ray.train.lightning import (
     RayDDPStrategy,
@@ -147,7 +147,13 @@ class TrainFunc:
         # TODO: this only is relevant for WandB logger;
         # should we have a more robust check for this?
         args.append(f"--trainer.logger.group={self.name}")
+        # use trial id as version so wandb logging can resume
+        args.append(f"--trainer.logger.version={self.trial_id}")
         return args
+
+    @property
+    def trial_id(self):
+        return tune.get_trial_id()
 
     def __call__(self, hparams: dict[str, Any]):
         """
