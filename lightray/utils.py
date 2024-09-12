@@ -14,7 +14,7 @@ import lightning.pytorch as pl
 import pyarrow.fs
 import yaml
 from lightning.pytorch.cli import LightningCLI
-from ray import train, tune
+from ray import train
 from ray.train import CheckpointConfig, FailureConfig, RunConfig, ScalingConfig
 from ray.train.lightning import (
     RayDDPStrategy,
@@ -153,7 +153,7 @@ class TrainFunc:
 
     @property
     def trial_id(self):
-        return tune.get_trial_id()
+        return train.get_context().get_trial_id()
 
     def __call__(self, hparams: dict[str, Any]):
         """
