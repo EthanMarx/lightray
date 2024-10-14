@@ -74,9 +74,9 @@ spec:
       - name: ray-worker
         image: {{ .Values.image  }}
         imagePullPolicy: {{ .Values.imagePullPolicy  }} 
-        command: ["/bin/bash", "-c", "sleep infinity"]
-        #args:
-        #  - "ray start --num-cpus=$MY_CPU_REQUEST --address={{ .Release.Name }}-service:6380 --object-manager-port=8076 --node-manager-port=8077 --dashboard-agent-grpc-port=8078 --dashboard-agent-listen-port=52365 --block"
+        command: ["/bin/bash", "-c", "--"]
+        args:
+          - "ray start --num-cpus=$MY_CPU_REQUEST --address={{ .Release.Name }}-service:6380 --object-manager-port=8076 --node-manager-port=8077 --dashboard-agent-grpc-port=8078 --dashboard-agent-listen-port=52365 --block"
         volumeMounts:
           - mountPath: /dev/shm
             name: dshm

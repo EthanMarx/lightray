@@ -133,7 +133,6 @@ def run(
             resume_errored=True,
             storage_filesystem=external_fs,
         )
-
     else:
         tuner = tune.Tuner(
             train_func,
