@@ -41,9 +41,7 @@ spec:
           - name: GITSYNC_REF
             value: {{ .Values.gitRepo.ref }} 
           - name: GITSYNC_ROOT
-            value: /opt
-          - name: GITSYNC_LINK
-            value: aframe
+            value: {{ .Values.gitRepo.mountPath }}
           - name: GITSYNC_ONE_TIME
             value: "true"
           - name: GITSYNC_SSH_KNOWN_HOSTS
