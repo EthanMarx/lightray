@@ -10,12 +10,13 @@ dev: false
 
 # if dev is true, the repository that will be mounted
 gitRepo:
-  # identifier for git repo
-  name: aframe
   # git url for repo
   url: git@github.com:ML4GW/aframev2.git
-  # location where code should be mounted in container
+  # location where git-sync will store data
   mountPath: /opt
+  # name relative to mountPath where code will be cloned
+  # and, identifier for git repo in yaml
+  name: aframe
   # branch or commit on git repo
   ref: main
   # ssh key that will be mapped into container for cloning 
