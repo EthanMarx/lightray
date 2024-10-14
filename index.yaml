@@ -3,6 +3,16 @@ entries:
   ray-cluster:
   - apiVersion: v2
     appVersion: 1.16.0
+    created: "2024-10-14T12:19:06.803552406Z"
+    description: Deploy static ray clusters with Kubernetes.
+    digest: fb08e27a23a14869fb0d480cdb8700c34359060d7f557e26529eb49c5f03c3bf
+    name: ray-cluster
+    type: application
+    urls:
+    - https://github.com/EthanMarx/lightray/releases/download/ray-cluster-0.1.5/ray-cluster-0.1.5.tgz
+    version: 0.1.5
+  - apiVersion: v2
+    appVersion: 1.16.0
     created: "2024-10-08T17:59:44.266178041Z"
     description: Deploy static ray clusters with Kubernetes.
     digest: 78fa19cbe7dee2e14e36c4673025e727a6ba91622e9124c0d9fe8c149def3543
@@ -31,4 +41,4 @@ entries:
     urls:
     - https://github.com/EthanMarx/lightning-tune/releases/download/ray-cluster-0.1.1/ray-cluster-0.1.1.tgz
     version: 0.1.1
-generated: "2024-10-08T17:59:44.266195384Z"
+generated: "2024-10-14T12:19:06.803573095Z"
