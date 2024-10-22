@@ -75,4 +75,5 @@ s3 storage works out of the box. Make sure you have set the `AWS_ENDPOINT_URL`, 
 
 
 Currently, use of the pytorch lightning `WandbLogger` is enforced. Any other loggers passed in the
-config will be removed at runtime.
+config will be removed at runtime. Ensure you are configured on WandB, and have the
+`WANDB_API_KEY` enviroment variable set
