@@ -13,6 +13,7 @@ lightning = "<=2.4.0"
 s3fs = {version = "^2024.9.0"}
 pyarrow = {version = "^17.0.0"}
 jsonargparse = {version = "^4.29", extras = ["signatures"]}
+wandb = "^0.18.5"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.8.0"
