@@ -147,8 +147,10 @@ class TrainFunc:
         # TODO: this only is relevant for WandB logger;
         # should we have a more robust check for this?
         args.append(f"--trainer.logger.group={self.name}")
-        # use trial id as version so wandb logging can resume
-        args.append(f"--trainer.logger.version={self.trial_id}")
+        # use experiment name and trial id
+        # as version so wandb logging can resume
+        args.append(f"--trainer.logger.version={self.name}-{self.trial_id}")
+        args.append(f"--trainer.logger.name={self.name}-{self.trial_id}")
         return args
 
     @property
