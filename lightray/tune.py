@@ -31,6 +31,7 @@ def run(
     callbacks: Optional[Type[pl.callbacks.Callback]] = None,
     temp_dir: Optional[str] = None,
     args: Optional[list[str]] = None,
+    ray_init_kwargs: Optional[dict] = None,
 ) -> tune.ResultGrid:
     """
     Hyperparameter tune a LightningCLI with Ray Tune
@@ -99,7 +100,7 @@ def run(
             raise ValueError(
                 f"Address must start with 'ray://', got {address}"
             )
-    ray.init(address, _temp_dir=temp_dir)
+    ray.init(address, _temp_dir=temp_dir, **(ray_init_kwargs or {}))
 
     logging.info("Initializing checkpoint storage filesystems")
     internal_fs, external_fs, storage_dir = setup_filesystem(str(storage_dir))

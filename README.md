@@ -72,3 +72,8 @@ results = run(
 ```
 
 s3 storage works out of the box. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables set. Then, simply pass an s3 path (e.g. `s3://{bucket}/{folder}` to the `storage_dir` argument.
+
+
+Currently, use of the pytorch lightning `WandbLogger` is enforced. Any other loggers passed in the
+config will be removed at runtime. Ensure you are configured on WandB, and have the
+`WANDB_API_KEY` enviroment variable set

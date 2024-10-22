@@ -3,10 +3,11 @@ Hyperparameter tuning utilities based largely on this tutorial
 https://docs.ray.io/en/latest/tune/examples/tune-pytorch-lightning.html
 """
 
-
 import importlib
 import math
 import os
+import warnings
+from collections import defaultdict
 from tempfile import NamedTemporaryFile
 from typing import Any, List, Optional, Type, Union
 
@@ -143,13 +144,32 @@ class TrainFunc:
         self.config = config
         self.callbacks = callbacks
 
-    def validate_logger(self, args):
-        # TODO: this only is relevant for WandB logger;
-        # should we have a more robust check for this?
-        args.append(f"--trainer.logger.group={self.name}")
-        # use trial id as version so wandb logging can resume
-        args.append(f"--trainer.logger.version={self.trial_id}")
-        return args
+    def validate_logger(self, config: dict) -> dict:
+        loggers = config["trainer"]["logger"]
+        if not isinstance(loggers, list):
+            loggers = [loggers]
+
+        # check for existing loggers and warn
+        # if they are not `WandbLogger`
+        for logger in loggers:
+            if "WandbLogger" not in logger["class_path"]:
+                warnings.warn(
+                    "lightray currently only supports `WandbLogger`. "
+                    f"Removing logger {logger['class_path']}"
+                )
+
+        # set up a WandbLogger based on experiment and
+        # trial specific information;
+        # specifying version and name in this way will ensure wandb
+        # can resume if trial is interrupted
+        logger = defaultdict(dict)
+        logger["class_path"] = "lightning.pytorch.loggers.WandbLogger"
+        logger["init_args"]["name"] = f"{self.name}-{self.trial_id}"
+        logger["init_args"]["version"] = f"{self.name}-{self.trial_id}"
+        logger["dict_kwargs"]["group"] = self.name
+
+        config["trainer"]["logger"] = [dict(logger)]
+        return config
 
     @property
     def trial_id(self):
@@ -163,14 +183,13 @@ class TrainFunc:
         """
 
         with NamedTemporaryFile(mode="w") as f:
+            config = self.validate_logger(self.config)
             # dump the core config,
             # then add the hyperparameters
-            yaml.dump(self.config, f)
+            yaml.dump(config, f)
             args = ["-c", f.name]
             for key, value in hparams.items():
                 args.append(f"--{key}={value}")
-
-            args = self.validate_logger(args)
 
             cli_cls = get_worker_cli(self.cli, self.callbacks)
             cli = cli_cls(
