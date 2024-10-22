@@ -167,6 +167,7 @@ class TrainFunc:
         logger["init_args"]["name"] = f"{self.name}-{self.trial_id}"
         logger["init_args"]["version"] = f"{self.name}-{self.trial_id}"
         logger["dict_kwargs"]["group"] = self.name
+        logger["dict_kwargs"]["resume"] = "allow"
 
         config["trainer"]["logger"] = [dict(logger)]
         return config
