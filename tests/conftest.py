@@ -103,8 +103,7 @@ def config():
     return Path(__file__).parent / "config.yaml"
 
 
-@pytest.fixture
-def simple_cli():
+def simple_cli() -> LightningCLI:
     class Cli(LightningCLI):
         def add_arguments_to_parser(self, parser):
             parser.link_arguments(

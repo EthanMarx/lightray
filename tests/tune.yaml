@@ -1,0 +1,37 @@
+tune_callback:
+  class_path: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
+  init_args:
+    'on': "validation_end"
+
+tune_config:
+  mode: "min"
+  metric: "val_loss"
+  scheduler: 
+    class_path: ray.tune.schedulers.ASHAScheduler
+    init_args:
+      max_t: 4
+      grace_period: 1
+      reduction_factor: 2
+  num_samples: 32
+  reuse_actors: true
+
+run_config:
+  name: "my-first-run"
+  storage_path: s3://aframe-test/new-tune/
+  failure_config:
+    class_path: ray.train.FailureConfig
+    init_args:
+      max_failures: 1
+  checkpoint_config:
+    class_path: ray.train.CheckpointConfig
+    init_args:
+      num_to_keep: 1
+      checkpoint_score_attribute: "val_loss"
+      checkpoint_score_order: "min"
+  verbose: null
+ray_init:
+  address: null
+param_space:
+  model.learning_rate: tune.loguniform(1e-1, 1)
+lightning_cli_cls: tests.test_tune.Cli
+lightning_config: /home/ethan.marx/projects/lightray/tests/cli.yaml

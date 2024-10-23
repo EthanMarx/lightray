@@ -1,36 +1,23 @@
-import contextlib
-import os
+import sys
 from pathlib import Path
 
 import lightning.pytorch as pl
 import pytest
-from ray import train, tune
-from ray.tune.schedulers import ASHAScheduler
+import torch
+from lightning.pytorch.cli import LightningCLI
+from torch.utils.data import DataLoader, TensorDataset
 
-from lightray.tune import run
-
-
-@contextlib.contextmanager
-def mock_wandb():
-    os.environ.setdefault("WANDB_MODE", "disabled")
-    os.environ.setdefault("WANDB_API_KEY", "abcd")
-    yield {
-        "runtime_env": {
-            "env_vars": {"WANDB_MODE": "disabled", "WANDB_API_KEY": "abcd"}
-        }
-    }
-    os.environ.pop("WANDB_MODE")
-    os.environ.pop("WANDB_API_KEY")
+from lightray.tune import cli
 
 
 @pytest.fixture
-def config():
-    return Path(__file__).parent / "config.yaml"
+def cli_config():
+    return Path(__file__).parent / "cli.yaml"
 
 
 @pytest.fixture
-def scheduler():
-    return ASHAScheduler(max_t=10, grace_period=1, reduction_factor=2)
+def tune_config():
+    return Path(__file__).parent / "tune.yaml"
 
 
 @pytest.fixture
@@ -41,108 +28,89 @@ def storage_dir(tmp_path):
     return storage_dir
 
 
-def test_run(scheduler, config, storage_dir, simple_cli):
-    search_space = {
-        "model.init_args.hidden_size": tune.randint(2, 8),
-        "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-1),
-    }
+class SimpleDataModule(pl.LightningDataModule):
+    def __init__(
+        self, data_dim: int, num_samples: int = 64, batch_size: int = 32
+    ):
+        super().__init__()
+        self.num_samples = num_samples
+        self.batch_size = batch_size
+        self.data_dim = data_dim
 
-    args = ["--config", str(config)]
-    args += ["--trainer.logger.save_dir", str(storage_dir)]
-    num_samples = 2
-    with mock_wandb() as ray_kwargs:
-        results = run(
-            simple_cli,
-            "tune-test",
-            "val_loss",
-            "min",
-            search_space,
-            scheduler,
-            storage_dir,
-            address=None,
-            num_samples=num_samples,
-            workers_per_trial=1,
-            gpus_per_worker=0.0,
-            cpus_per_gpu=1.0,
-            temp_dir=None,
-            args=args,
-            ray_init_kwargs=ray_kwargs,
+    def setup(self, stage):
+        self.train_data = torch.randn(self.num_samples, self.data_dim)
+        self.train_labels = torch.randint(0, 2, (self.num_samples,))
+        self.val_data = torch.randn(self.num_samples // 5, self.data_dim)
+        self.val_labels = torch.randint(0, 2, (self.num_samples // 5,))
+        self.setup_called = True
+
+    def train_dataloader(self):
+        return DataLoader(
+            TensorDataset(self.train_data, self.train_labels),
+            batch_size=self.batch_size,
         )
 
-    assert len(results) == num_samples
-    for result in results:
-        assert result.error is None
-
-
-def test_run_with_callback(scheduler, config, storage_dir, simple_cli):
-    search_space = {
-        "model.init_args.hidden_size": tune.randint(2, 8),
-        "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-1),
-    }
-
-    args = ["--config", str(config)]
-    args += ["--trainer.logger.save_dir", str(storage_dir)]
-    num_samples = 2
-
-    # test run with dummy callback
-    # that queries trial information
-    class DummyCallback(pl.Callback):
-        def on_epoch_end(self, trainer, _):
-            trial_name = train.get_context().get_trial_name()
-            assert trial_name is not None
-
-    with mock_wandb() as ray_kwargs:
-        results = run(
-            simple_cli,
-            "tune-test",
-            "val_loss",
-            "min",
-            search_space,
-            scheduler,
-            storage_dir,
-            address=None,
-            callbacks=[DummyCallback],
-            num_samples=num_samples,
-            workers_per_trial=1,
-            gpus_per_worker=0.0,
-            cpus_per_gpu=1.0,
-            temp_dir=None,
-            args=args,
-            ray_init_kwargs=ray_kwargs,
-        )
-    assert len(results) == num_samples
-    for result in results:
-        assert result.error is None
-
-
-def test_wandb(scheduler, config, storage_dir, simple_cli):
-    search_space = {
-        "model.init_args.hidden_size": tune.randint(2, 8),
-        "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-1),
-    }
-
-    args = ["--config", str(config)]
-    args += ["--trainer.logger.save_dir", str(storage_dir)]
-    num_samples = 2
-    with mock_wandb() as ray_kwargs:
-        results = run(
-            simple_cli,
-            "tune-test",
-            "val_loss",
-            "min",
-            search_space,
-            scheduler,
-            storage_dir,
-            address=None,
-            num_samples=num_samples,
-            workers_per_trial=1,
-            gpus_per_worker=0.0,
-            cpus_per_gpu=1.0,
-            temp_dir=None,
-            args=args,
-            ray_init_kwargs=ray_kwargs,
+    def val_dataloader(self):
+        return DataLoader(
+            TensorDataset(self.val_data, self.val_labels),
+            batch_size=self.batch_size,
         )
 
-    assert len(results) == num_samples
-    for result in results:
-        assert result.error is None
+
+class SimpleModel(pl.LightningModule):
+    def __init__(
+        self, data_dim: int, hidden_size: int = 32, learning_rate: float = 0.01
+    ):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.learning_rate = learning_rate
+        self.layer1 = torch.nn.Linear(data_dim, hidden_size)
+        self.layer2 = torch.nn.Linear(hidden_size, 1)
+
+    def forward(self, x):
+        x = torch.relu(self.layer1(x))
+        return torch.sigmoid(self.layer2(x))
+
+    def training_step(self, batch, _):
+        x, y = batch
+        y_hat = self(x)
+        loss = torch.nn.functional.binary_cross_entropy(
+            y_hat.squeeze(), y.float()
+        )
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch, _):
+        x, y = batch
+        y_hat = self(x)
+        loss = torch.nn.functional.binary_cross_entropy(
+            y_hat.squeeze(), y.float()
+        )
+        self.log("val_loss", loss)
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
+
+class Cli(LightningCLI):
+    def add_arguments_to_parser(self, parser):
+        parser.link_arguments(
+            "data.init_args.data_dim",
+            "model.init_args.data_dim",
+            apply_on="parse",
+        )
+
+
+def test_run(cli_config, tune_config, storage_dir):
+    sys.argv = [
+        "",
+        "--config",
+        str(tune_config),
+        "--run_config.storage_path",
+        str(storage_dir),
+        "--",
+        "--config",
+        str(cli_config),
+    ]
+    cli()
