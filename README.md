@@ -96,7 +96,19 @@ lightray --config tune.yaml
 
 ## S3 Support
 In addition, there is automatic support for `s3` storage. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables. 
-Then, simply pass the path to your bucket with the `s3` prefix (e.g. `s3://{bucket}/{folder}`) to the `storage_path` argument.
+Then, simply pass the path to your bucket with the `s3` prefix (e.g. `s3://{bucket}/{folder}`) to the `run_config.storage_path` argument.
+
+```console
+lightray --config tune.yaml --run_config.storage_path s3://{bucket}/{folder}
+```
 
 There is also a wrapper around the `ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback` that will do checkpoint reporting with retries to handle transient s3 errors.
 This is provided at `lightray.callbacks.LightRayReportCheckpointCallback`
+
+
+## Remote cluster
+To connect to a remote ray cluster, pass the ip address and (using port `10001`) to `ray_init.address`:
+
+```console
+lightray --config tune.yaml --ray_init.address ray://{ip}:10001
+```
