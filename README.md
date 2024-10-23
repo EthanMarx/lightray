@@ -1,21 +1,11 @@
 # lightray
-Easily integrate a `LightningCLI` with `RayTune` hyperparameter optimization
+A CLI for easily integrating `LightningCLI` with `RayTune` hyperparameter optimization
 
 ## Getting Started
-Extend your custom `LightningCLI` to a `Trainable` compatible with `RayTune`.
-
-Imagine you have a `LightningCLI` parser for a 
+Imagine you have the following lightning `DataModule`, `LightningModule` and `LightningCLI`
 
 ```python
 from lightning.pytorch as pl
-
-class CustomCLI(pl.cli.LightningCLI):
-    def add_arguments_to_parser(self, parser):
-        parser.link_arguments(
-            "data.init_args.parameter", 
-            "model.init_args.parameter", 
-            apply_on="parse"
-        )
 
 class DataModule(pl.LightningDataModule):
     def __init__(self, hidden_dim: int, learning_rate: float, parameter: int):
@@ -26,54 +16,87 @@ class DataModule(pl.LightningDataModule):
     def train_dataloader(self):
         ...
 
-class DataModule(pl.LightningModule):
+class LightningModule(pl.LightningModule):
     def __init__(self, parameter: int):
         self.parameter = parameter
     
     def training_step(self):
         ...
 
+class CustomCLI(pl.cli.LightningCLI):
+    def add_arguments_to_parser(self, parser):
+        parser.link_arguments(
+            "data.init_args.parameter", 
+            "model.init_args.parameter", 
+            apply_on="parse"
+        )
+
 ```
 
-Launching a hyperparameter tuning job with `RayTune` using this `LightningCLI` is as simple as
+To launching a hyperparameter tuning job with `RayTune` using this `LightningCLI` can be done by configuring
+a `yaml` that looks like the following
 
-```python
-from ray import tune
-from raylightning import run
+```yaml
+# tune.yaml
 
-# define search space
-search_space = {
-    "model.init_args.hidden_dim": tune.choice([32, 64]),
-    "model.init_args.learning_rate": tune.loguniform(1e-4, 1e-2)
-}
+tune_callback:
+  class_path: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
+  init_args:
+    'on': "validation_end"
 
-# define scheduler
-scheduler = ASHAScheduler(max_t=50, grace_period=1, reduction_factor=2)
+# tune.TuneConfig
+tune_config:
+  mode: "min"
+  metric: "val_loss"
+  scheduler: 
+    class_path: ray.tune.schedulers.ASHAScheduler
+    init_args:
+      max_t: 4
+      grace_period: 1
+      reduction_factor: 2
+  num_samples: 32
+  reuse_actors: true
 
-# pass command line style arguments as if you were
-# running your `LightningCLI` from the command line
-args = ["--config", "/path/to/config.yaml"]
-results = run(
-    args=args
-    cli_cls=simple_cli,
-    name="tune-test",
-    metric="val_loss",
-    objective="min",
-    search_space=search_space,
-    scheduler=scheduler,
-    storage_dir=storage_dir,
-    address=None,
-    num_samples=num_samples,
-    workers_per_trial=1,
-    gpus_per_worker=1.0,
-    cpus_per_gpu=4.0,
-    temp_dir=None,
-)
+# tune.RuneConfig
+run_config:
+  name: "my-first-run"
+  storage_path: s3://aframe-test/new-tune/
+  failure_config:
+    class_path: ray.train.FailureConfig
+    init_args:
+      max_failures: 1
+  checkpoint_config:
+    class_path: ray.train.CheckpointConfig
+    init_args:
+      num_to_keep: 1
+      checkpoint_score_attribute: "val_loss"
+      checkpoint_score_order: "min"
+  verbose: null
+
+# ray.init
+ray_init:
+  address: null
+
+# param space to search over
+param_space:
+  model.learning_rate: tune.loguniform(1e-1, 1)
+
+# lightning cli class to fit
+lightning_cli_cls: path.to.MyLightningCLI
+
+# yaml configuration for lightning cli 
+lightning_config: /path/to/lightning_config.yaml
 ```
 
-s3 storage works out of the box. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables set. Then, simply pass an s3 path (e.g. `s3://{bucket}/{folder}` to the `storage_dir` argument.
+Then, launch the tuning job
 
+```console
+lightray --config tune.yaml 
+```
 
-Currently, use of the pytorch lightning `WandbLogger` is enforced. Any other loggers passed in the
-config will be removed at runtime. Ensure you are configured on WandB, and have the
-`WANDB_API_KEY` enviroment variable set
+## S3 Support
+In addition, there is automatic support for `s3` storage. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables. 
+Then, simply pass the path to your bucket with the `s3` prefix (e.g. `s3://{bucket}/{folder}`) to the `storage_path` argument.
+
+There is also a wrapper around the `ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback` that will do checkpoint reporting with retries to handle transient s3 errors.
+This is provided at `lightray.callbacks.LightRayReportCheckpointCallback`

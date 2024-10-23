@@ -15,6 +15,10 @@ pyarrow = {version = "^17.0.0"}
 jsonargparse = {version = "^4.33.2", extras = ["signatures"]}
 wandb = "^0.18.5"
 
+
+[tool.poetry.scripts]
+lightray = "lightray.cli:cli"
+
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.8.0"
 pytest = "^8.3.2"

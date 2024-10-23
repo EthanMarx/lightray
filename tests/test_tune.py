@@ -7,17 +7,17 @@ import torch
 from lightning.pytorch.cli import LightningCLI
 from torch.utils.data import DataLoader, TensorDataset
 
-from lightray.tune import cli
+from lightray.cli import cli
 
 
 @pytest.fixture
 def cli_config():
-    return Path(__file__).parent / "cli.yaml"
+    return Path(__file__).parent.parent / "cli.yaml"
 
 
 @pytest.fixture
 def tune_config():
-    return Path(__file__).parent / "tune.yaml"
+    return Path(__file__).parent.parent / "example.yaml"
 
 
 @pytest.fixture
@@ -109,8 +109,5 @@ def test_run(cli_config, tune_config, storage_dir):
         str(tune_config),
         "--run_config.storage_path",
         str(storage_dir),
-        "--",
-        "--config",
-        str(cli_config),
     ]
     cli()
