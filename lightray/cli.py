@@ -26,6 +26,9 @@ def cli():
     parser.add_class_arguments(
         train.RunConfig, "run_config", skip="storage_filesystem"
     )
+    # super weird bug doens't let SyncConfig get parsed as
+    # attribute of RunConfig so we have to do it manually
+    parser.add_class_arguments(train.SyncConfig, "sync_config")
     parser.add_function_arguments(ray.init, "ray_init")
     parser.add_argument(
         "lightning_cli_cls",
@@ -75,6 +78,7 @@ def cli():
     # instantiate tune related classes from config
     # and parse the parameter space
     cfg_init = parser.instantiate_classes(cfg)
+    cfg_init.run_config.sync_config = cfg_init.sync_config
     utils.eval_tune_run_config(cfg_init.param_space)
 
     # initialize ray
