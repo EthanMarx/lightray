@@ -39,6 +39,10 @@ def get_trainable(
         for key, val in config.items():
             args.append(f"--{key}={val}")
 
+        # setup lightning logger path to point to ray trial dir
+        log_dir = train.get_context().get_trial_dir()
+        args.append(f"--trainer.logger.save_dir={log_dir}/wandb")
+
         # get ckpt prefix based on fs
         if not storage_path.startswith("s3://"):
             ckpt_prefix = ""
