@@ -49,7 +49,19 @@ def cli():
         help="Path to the lightning config file",
     )
 
+    parser.link_arguments(
+        "run_config.checkpoint_config.checkpoint_score_attribute",
+        "tune_callback.init_args.metric",
+        apply_on="parse",
+    )
+    parser.link_arguments(
+        "run_config.checkpoint_config.checkpoint_score_order",
+        "tune_callback.init_args.mode",
+        apply_on="parse",
+    )
+
     cfg = parser.parse_args()
+
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(
         format=log_format,

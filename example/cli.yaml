@@ -1,0 +1,20 @@
+trainer:
+  max_epochs: 100
+  logger: 
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: "logs/"
+
+data:
+  class_path: example.lightning.SimpleDataModule
+  init_args:
+    data_dim: 10
+    num_samples: 1000
+    batch_size: 32
+
+model:
+  class_path: example.lightning.SimpleModel
+  init_args:
+    data_dim: 10
+    hidden_size: 32
+    learning_rate: 0.01

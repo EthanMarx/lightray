@@ -41,7 +41,7 @@ def get_trainable(
 
         # setup lightning logger path to point to ray trial dir
         log_dir = train.get_context().get_trial_dir()
-        args.append(f"--trainer.logger.save_dir={log_dir}/lightning_logs")
+        args.append(f"--trainer.logger.save_dir={log_dir}")
 
         # get ckpt prefix based on fs
         if not storage_path.startswith("s3://"):
