@@ -18,7 +18,7 @@ from ray.tune.integration.pytorch_lightning import TuneCallback
 from lightray import fs, utils
 
 
-def cli():
+def cli(args=None):
     parser = ArgumentParser()
     parser.add_argument("--config", action=ActionConfigFile)
     parser.add_subclass_arguments(TuneCallback, "tune_callback")
@@ -60,7 +60,7 @@ def cli():
         apply_on="parse",
     )
 
-    cfg = parser.parse_args()
+    cfg = parser.parse_args(args)
 
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     logging.basicConfig(
