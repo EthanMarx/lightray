@@ -39,25 +39,20 @@ a `yaml` that looks like the following
 ```yaml
 # tune.yaml
 
-tune_callback:
-  class_path: ray.tune.integration.pytorch_lightning.TuneReportCheckpointCallback
-  init_args:
-    'on': "validation_end"
-
-# tune.TuneConfig
+# ray.tune.TuneConfig
 tune_config:
   mode: "min"
   metric: "val_loss"
   scheduler: 
     class_path: ray.tune.schedulers.ASHAScheduler
     init_args:
-      max_t: 4
-      grace_period: 1
+      max_t: 200
+      grace_period: 21
       reduction_factor: 2
-  num_samples: 32
+  num_samples: 1
   reuse_actors: true
 
-# tune.RuneConfig
+# ray.train.RunConfig
 run_config:
   name: "my-first-run"
   storage_path: s3://aframe-test/new-tune/
@@ -68,24 +63,37 @@ run_config:
   checkpoint_config:
     class_path: ray.train.CheckpointConfig
     init_args:
-      num_to_keep: 1
+      num_to_keep: 5
       checkpoint_score_attribute: "val_loss"
       checkpoint_score_order: "min"
   verbose: null
 
+# ray.train.SyncConfig
+sync_config:
+  sync_period: 1000
+
 # ray.init
 ray_init:
   address: null
-
-# param space to search over
+  
+# tune.Tune.param_space
 param_space:
-  model.learning_rate: tune.loguniform(1e-1, 1)
+  model.learning_rate: tune.loguniform(1e-3, 4)
 
-# lightning cli class to fit
-lightning_cli_cls: path.to.MyLightningCLI
+# ray.tune.TuneCallback
+tune_callback:
+  class_path: lightray.callbacks.LightRayReportCheckpointCallback
+  init_args:
+    'on': "validation_end"
+    checkpoint_every: 10
 
-# yaml configuration for lightning cli 
-lightning_config: /path/to/lightning_config.yaml
+# resources per trial
+cpus_per_trial: 2
+gpus_per_trial: 1
+
+# lightning cli
+lightning_cli_cls: example.lightning.Cli
+lightning_config: /home/ethan.marx/projects/lightray/example/cli.yaml
 ```
 
 Then, launch the tuning job

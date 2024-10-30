@@ -1,3 +1,4 @@
+# ray.tune.TuneConfig
 tune_config:
   mode: "min"
   metric: "val_loss"
@@ -10,6 +11,7 @@ tune_config:
   num_samples: 1
   reuse_actors: true
 
+# ray.train.RunConfig
 run_config:
   name: "my-first-run"
   storage_path: s3://aframe-test/new-tune/
@@ -24,18 +26,30 @@ run_config:
       checkpoint_score_attribute: "val_loss"
       checkpoint_score_order: "min"
   verbose: null
+
+# ray.train.SyncConfig
+sync_config:
+  sync_period: 1000
+
+# ray.init
 ray_init:
   address: null
+  
+# tune.Tune.param_space
 param_space:
   model.learning_rate: tune.loguniform(1e-3, 4)
 
+# ray.tune.TuneCallback
 tune_callback:
   class_path: lightray.callbacks.LightRayReportCheckpointCallback
   init_args:
     'on': "validation_end"
     checkpoint_every: 10
 
+# resources per trial
 cpus_per_trial: 2
 gpus_per_trial: 1
+
+# lightning cli
 lightning_cli_cls: example.lightning.Cli
 lightning_config: /home/ethan.marx/projects/lightray/example/cli.yaml
