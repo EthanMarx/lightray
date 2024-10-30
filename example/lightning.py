@@ -1,31 +1,7 @@
-import sys
-from pathlib import Path
-
 import lightning.pytorch as pl
-import pytest
 import torch
 from lightning.pytorch.cli import LightningCLI
 from torch.utils.data import DataLoader, TensorDataset
-
-from lightray.cli import cli
-
-
-@pytest.fixture
-def cli_config():
-    return Path(__file__).parent.parent / "cli.yaml"
-
-
-@pytest.fixture
-def tune_config():
-    return Path(__file__).parent.parent / "example.yaml"
-
-
-@pytest.fixture
-def storage_dir(tmp_path):
-    # Create a temporary directory
-    storage_dir = tmp_path / "storage"
-    storage_dir.mkdir()
-    return storage_dir
 
 
 class SimpleDataModule(pl.LightningDataModule):
@@ -100,14 +76,3 @@ class Cli(LightningCLI):
             "model.init_args.data_dim",
             apply_on="parse",
         )
-
-
-def test_run(cli_config, tune_config, storage_dir):
-    sys.argv = [
-        "",
-        "--config",
-        str(tune_config),
-        "--run_config.storage_path",
-        str(storage_dir),
-    ]
-    cli()
