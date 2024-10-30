@@ -1,0 +1,1 @@
+lightray --config example.yaml

@@ -1,17 +1,15 @@
-import os
-import shutil
+import logging
 import time
-from pathlib import Path
+from typing import Literal
 
 from botocore.exceptions import ClientError, ConnectTimeoutError
 from ray import train
-from ray.train import Checkpoint
-from ray.train.lightning import RayTrainReportCallback
+from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 
 BOTO_RETRY_EXCEPTIONS = (ClientError, ConnectTimeoutError)
 
 
-def report_with_retries(metrics, checkpoint, retries: int = 10):
+def report_with_retries(metrics, checkpoint=None, retries: int = 10):
     """
     Call `train.report`, which will persist checkpoints to s3,
     retrying after any possible errors
@@ -25,38 +23,71 @@ def report_with_retries(metrics, checkpoint, retries: int = 10):
             continue
 
 
-class TrainReportCallback(RayTrainReportCallback):
+class LightRayReportCheckpointCallback(TuneReportCheckpointCallback):
     """
-    Equivalent of the RayTrainReportCallback
-    (https://docs.ray.io/en/latest/train/api/doc/ray.train.lightning.RayTrainReportCallback.html)
-    except adds a retry mechanism to the `train.report` call
+    Subclass of Rays TuneReportCheckpointCallback
+    with addition of a retry mechanism to the `train.report`
+    call to handle transient s3 errors.
+
+    Adds a `checkpoint_every` parameter to the constructor
+    that will only checkpoint every `checkpoint_every` epochs
+
+    Adds a `best` parameter to the constructor that will
+    checkpoint if the current metric is better than
+    the previous best metric.
+
+    Somehow integrating with `ModelCheckpoint` would be nice
     """
 
-    def on_train_epoch_end(self, trainer, pl_module) -> None:
-        # Creates a checkpoint dir with fixed name
-        tmpdir = Path(
-            self.tmpdir_prefix, str(trainer.current_epoch)
-        ).as_posix()
-        os.makedirs(tmpdir, exist_ok=True)
+    def __init__(
+        self,
+        *args,
+        checkpoint_every: int = 1,
+        metric: str = None,
+        mode: Literal["max", "min"] = "min",
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.metric = metric
+        self.checkpoint_every = checkpoint_every
+        self.mode = mode
+        self.step = 0
+        self.best = None
 
-        # Fetch metrics
-        metrics = trainer.callback_metrics
-        metrics = {k: v.item() for k, v in metrics.items()}
+    def is_best(self, metric):
+        if self.mode == "max":
+            return metric > self.best
+        elif self.mode == "min":
+            return metric < self.best
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
 
-        # (Optional) Add customized metrics
-        metrics["epoch"] = trainer.current_epoch
-        metrics["step"] = trainer.global_step
+    def _handle(self, trainer, pl_module):
+        if trainer.sanity_checking:
+            return
 
-        # Save checkpoint to local
-        ckpt_path = Path(tmpdir, self.CHECKPOINT_NAME).as_posix()
-        trainer.save_checkpoint(ckpt_path, weights_only=False)
+        report_dict = self._get_report_dict(trainer, pl_module)
+        if not report_dict:
+            return
 
-        # Report to train session
-        checkpoint = Checkpoint.from_directory(tmpdir)
-        report_with_retries(metrics=metrics, checkpoint=checkpoint)
+        report_checkpoint = False
 
-        # Add a barrier to ensure all workers finished reporting here
-        trainer.strategy.barrier()
+        # report checkpoint if step is a multiple of checkpoint_every
+        if not self.step % self.checkpoint_every:
+            report_checkpoint = True
 
-        if self.local_rank == 0:
-            shutil.rmtree(tmpdir)
+        # or if the metric is better than the previous best
+        if self.metric is not None:
+            step_metric = report_dict[self.metric]
+            if self.best is None or self.is_best(step_metric):
+                self.best = step_metric
+                report_checkpoint = True
+
+        if report_checkpoint:
+            with self._get_checkpoint(trainer) as checkpoint:
+                logging.debug(f"Reporting checkpoint on epoch {self.step}")
+                report_with_retries(report_dict, checkpoint=checkpoint)
+        else:
+            train.report(metrics=report_dict)
+
+        self.step += 1

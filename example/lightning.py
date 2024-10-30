@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import lightning.pytorch as pl
@@ -6,31 +7,25 @@ import torch
 from lightning.pytorch.cli import LightningCLI
 from torch.utils.data import DataLoader, TensorDataset
 
-
-class DataModule(pl.LightningDataModule):
-    def __init__(self, argument: int):
-        self.argument = argument
-
-
-class Model(pl.LightningModule):
-    def __init__(self, argument: int):
-        self.argument = argument
+from lightray.cli import cli
 
 
 @pytest.fixture
-def dummy_cli():
-    class Cli(LightningCLI):
-        def add_arguments_to_parser(self, parser):
-            parser.link_arguments(
-                "data.init_args.argument",
-                "model.init_args.argument",
-                apply_on="parse",
-            )
-
-    return Cli
+def cli_config():
+    return Path(__file__).parent.parent / "cli.yaml"
 
 
-space = {"a": "b"}
+@pytest.fixture
+def tune_config():
+    return Path(__file__).parent.parent / "example.yaml"
+
+
+@pytest.fixture
+def storage_dir(tmp_path):
+    # Create a temporary directory
+    storage_dir = tmp_path / "storage"
+    storage_dir.mkdir()
+    return storage_dir
 
 
 class SimpleDataModule(pl.LightningDataModule):
@@ -98,19 +93,21 @@ class SimpleModel(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
 
-@pytest.fixture
-def config():
-    return Path(__file__).parent / "config.yaml"
+class Cli(LightningCLI):
+    def add_arguments_to_parser(self, parser):
+        parser.link_arguments(
+            "data.init_args.data_dim",
+            "model.init_args.data_dim",
+            apply_on="parse",
+        )
 
 
-@pytest.fixture
-def simple_cli():
-    class Cli(LightningCLI):
-        def add_arguments_to_parser(self, parser):
-            parser.link_arguments(
-                "data.init_args.data_dim",
-                "model.init_args.data_dim",
-                apply_on="parse",
-            )
-
-    return Cli
+def test_run(cli_config, tune_config, storage_dir):
+    sys.argv = [
+        "",
+        "--config",
+        str(tune_config),
+        "--run_config.storage_path",
+        str(storage_dir),
+    ]
+    cli()
