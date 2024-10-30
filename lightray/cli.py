@@ -1,6 +1,5 @@
 """
-A large portion of this was inspired by
-https://github.com/mauvilsa/ray-tune-cli/
+Heavily inspired by https://github.com/mauvilsa/ray-tune-cli/
 """
 
 import logging
@@ -10,7 +9,12 @@ from typing import Optional, Type
 
 import pyarrow
 import ray
-from jsonargparse import ActionConfigFile, ArgumentParser, capture_parser
+from jsonargparse import (
+    REMAINDER,
+    ActionConfigFile,
+    ArgumentParser,
+    capture_parser,
+)
 from lightning.pytorch.cli import LightningCLI
 from ray import train, tune
 from ray.tune.integration.pytorch_lightning import TuneCallback
@@ -31,7 +35,7 @@ def cli(args=None):
     parser.add_class_arguments(train.SyncConfig, "sync_config")
     parser.add_function_arguments(ray.init, "ray_init")
     parser.add_argument(
-        "lightning_cli_cls",
+        "--lightning_cli_cls",
         type=Type[LightningCLI],
         help="Lightning CLI class",
     )
@@ -43,11 +47,6 @@ def cli(args=None):
     )
     parser.add_argument("--gpus_per_trial", type=int, default=0)
     parser.add_argument("--cpus_per_trial", type=int, default=1)
-    parser.add_argument(
-        "lightning_config",
-        type=str,
-        help="Path to the lightning config file",
-    )
 
     parser.link_arguments(
         "run_config.checkpoint_config.checkpoint_score_attribute",
@@ -60,6 +59,13 @@ def cli(args=None):
         apply_on="parse",
     )
 
+    parser.add_argument(
+        "lightning_args",
+        nargs=REMAINDER,
+        help='All arguments after the double dash "--"'
+        "are forwarded to the LightningCLI-based function",
+    )
+
     cfg = parser.parse_args(args)
 
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -69,7 +75,8 @@ def cli(args=None):
         stream=sys.stdout,
     )
 
-    # get lightning cli parser and parse passed config
+    # get lightning cli parser and parse any arguments
+    # passed after "--" at the command line
     lightning_cli_cls = cfg.lightning_cli_cls
     lightning_parser = capture_parser(lightning_cli_cls)
     if lightning_parser._subcommands_action:
@@ -77,9 +84,10 @@ def cli(args=None):
             lightning_parser._subcommands_action._name_parser_map["fit"]
         )
 
-    lightning_cfg = lightning_parser.parse_args(
-        ["--config", cfg.lightning_config]
-    )
+    if len(cfg.lightning_args) > 1:
+        lightning_cfg = lightning_parser.parse_args(cfg.lightning_args[1:])
+    else:
+        lightning_cfg = lightning_parser.get_defaults()
 
     callbacks = [cfg.tune_callback]
     callbacks += lightning_cfg.get("trainer.callbacks") or []

@@ -8,7 +8,7 @@ tune_config:
       max_t: 200
       grace_period: 21
       reduction_factor: 2
-  num_samples: 1
+  num_samples: 8
   reuse_actors: true
 
 # ray.train.RunConfig
@@ -50,6 +50,5 @@ tune_callback:
 cpus_per_trial: 2
 gpus_per_trial: 1
 
-# lightning cli
+# lightning cli cls
 lightning_cli_cls: example.lightning.Cli
-lightning_config: /home/ethan.marx/projects/lightray/example/cli.yaml

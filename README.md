@@ -91,16 +91,18 @@ tune_callback:
 cpus_per_trial: 2
 gpus_per_trial: 1
 
-# lightning cli
+# lightning cli class to tune
 lightning_cli_cls: example.lightning.Cli
-lightning_config: /home/ethan.marx/projects/lightray/example/cli.yaml
 ```
 
-Then, launch the tuning job
+Then, launch the tuning job.
 
 ```console
-lightray --config tune.yaml 
+lightray --config tune.yaml -- --config cli.yaml
 ```
+
+Any arguments passed after "--" will automatically be forwarded to the specified `LightningCLI` class as if it were being run from the command line. This way, tuning configuration and training configuration can be kept separate. Also, you can easily utilize existing configuration files compatible with your `LightningCLI`.
+
 
 ## S3 Support
 In addition, there is automatic support for `s3` storage. Make sure you have set the `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, and `AWS_SECRET_ACCESS_KEY` environment variables. 
@@ -115,8 +117,8 @@ This is provided at `lightray.callbacks.LightRayReportCheckpointCallback`
 
 
 ## Remote cluster
-To connect to a remote ray cluster, pass the ip address and (using port `10001`) to `ray_init.address`:
+To connect to a remote ray cluster, pass the ip address (using port `10001`) to `ray_init.address`:
 
 ```console
-lightray --config tune.yaml --ray_init.address ray://{ip}:10001
+lightray --config tune.yaml --ray_init.address ray://{ip}:10001 -- --config cli.yaml
 ```

@@ -1,1 +1,1 @@
-lightray --config example.yaml
+lightray --config example.yaml -- --config cli.yaml
