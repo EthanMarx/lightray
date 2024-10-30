@@ -26,8 +26,8 @@ def cli():
     parser.add_class_arguments(
         train.RunConfig, "run_config", skip="storage_filesystem"
     )
-    # super weird bug doens't let SyncConfig get parsed as
-    # attribute of RunConfig so we have to do it manually
+    # TODO: use add class arguments from tune.Tuner directly
+    # see https://github.com/omni-us/jsonargparse/issues/609
     parser.add_class_arguments(train.SyncConfig, "sync_config")
     parser.add_function_arguments(ray.init, "ray_init")
     parser.add_argument(
