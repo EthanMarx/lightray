@@ -23,7 +23,7 @@ from lightray import fs, utils
 
 
 def cli(args=None):
-    parser = ArgumentParser()
+    parser = ArgumentParser(parser_mode="omegaconf")
     parser.add_argument("--config", action=ActionConfigFile)
     parser.add_subclass_arguments(TuneCallback, "tune_callback")
     parser.add_class_arguments(tune.TuneConfig, "tune_config")
@@ -144,7 +144,6 @@ def cli(args=None):
             run_config=cfg_init.run_config,
         )
 
-    # othereise, instantiate a new tuner from config
     results = tuner.fit()
 
     ray.shutdown()
