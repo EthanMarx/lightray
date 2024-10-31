@@ -4,151 +4,164 @@ Heavily inspired by https://github.com/mauvilsa/ray-tune-cli/
 
 import logging
 import os
-import sys
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
-import pyarrow
 import ray
 from jsonargparse import (
     REMAINDER,
     ActionConfigFile,
     ArgumentParser,
+    Namespace,
     capture_parser,
 )
 from lightning.pytorch.cli import LightningCLI
-from ray import train, tune
-from ray.tune.integration.pytorch_lightning import TuneCallback
+from ray import tune
 
-from lightray import fs, utils
+from lightray import fs as fs_utils
+from lightray import utils
+
+ArgsType = Optional[list[str | dict[str, Any], Namespace]]
 
 
-def cli(args=None):
-    parser = ArgumentParser(parser_mode="omegaconf")
-    parser.add_argument("--config", action=ActionConfigFile)
-    parser.add_subclass_arguments(TuneCallback, "tune_callback")
-    parser.add_class_arguments(tune.TuneConfig, "tune_config")
-    parser.add_class_arguments(
-        train.RunConfig, "run_config", skip="storage_filesystem"
-    )
-    # TODO: use add class arguments from tune.Tuner directly
-    # see https://github.com/omni-us/jsonargparse/issues/609
-    parser.add_class_arguments(train.SyncConfig, "sync_config")
-    parser.add_function_arguments(ray.init, "ray_init")
-    parser.add_argument(
-        "--lightning_cli_cls",
-        type=Type[LightningCLI],
-        help="Lightning CLI class",
-    )
-    parser.add_argument("--param_space", type=dict)
-    parser.add_argument(
-        "--external_fs",
-        type=Optional[pyarrow.fs.FileSystem],
-        help="External filesystem to use",
-    )
-    parser.add_argument("--gpus_per_trial", type=int, default=0)
-    parser.add_argument("--cpus_per_trial", type=int, default=1)
+class RayTuneCli:
+    """
+    A customizable CLI to run a LightningCLI-based function with Ray Tune.
+    """
 
-    parser.link_arguments(
-        "run_config.checkpoint_config.checkpoint_score_attribute",
-        "tune_callback.init_args.metric",
-        apply_on="parse",
-    )
-    parser.link_arguments(
-        "run_config.checkpoint_config.checkpoint_score_order",
-        "tune_callback.init_args.mode",
-        apply_on="parse",
-    )
-
-    parser.add_argument(
-        "lightning_args",
-        nargs=REMAINDER,
-        help='All arguments after the double dash "--"'
-        "are forwarded to the LightningCLI-based function",
-    )
-
-    cfg = parser.parse_args(args)
-
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    logging.basicConfig(
-        format=log_format,
-        level=logging.INFO,
-        stream=sys.stdout,
-    )
-
-    # get lightning cli parser and parse any arguments
-    # passed after "--" at the command line
-    lightning_cli_cls = cfg.lightning_cli_cls
-    lightning_parser = capture_parser(lightning_cli_cls)
-    if lightning_parser._subcommands_action:
-        lightning_parser = (
-            lightning_parser._subcommands_action._name_parser_map["fit"]
-        )
-
-    if len(cfg.lightning_args) > 1:
-        lightning_cfg = lightning_parser.parse_args(cfg.lightning_args[1:])
-    else:
-        lightning_cfg = lightning_parser.get_defaults()
-
-    callbacks = [cfg.tune_callback]
-    callbacks += lightning_cfg.get("trainer.callbacks") or []
-
-    lightning_cfg["trainer.callbacks"] = callbacks
-    fit_dump = lightning_parser.dump(lightning_cfg)
-
-    # instantiate tune related classes from config
-    # and parse the parameter space
-    cfg_init = parser.instantiate_classes(cfg)
-    cfg_init.run_config.sync_config = cfg_init.sync_config
-    utils.eval_tune_run_config(cfg_init.param_space)
-
-    # initialize ray
-    ray.init(**cfg_init.ray_init)
-
-    # set up the storage path and filesystem
-    storage_path = cfg_init.run_config.storage_path
-    internal_fs = fs.setup_filesystem(storage_path)
-
-    trainable = utils.get_trainable(
-        storage_path,
-        lightning_cli_cls,
-        fit_dump,
-        cfg.cpus_per_trial,
-        cfg.gpus_per_trial,
-    )
-
-    if cfg_init.external_fs is None:
-        cfg_init.external_fs = internal_fs
-
-    # if this is an s3 path, strip out the prefix
-    storage_path = storage_path.removeprefix("s3://")
-    storage_path = os.path.join(storage_path, cfg_init.run_config.name)
-
-    if tune.Tuner.can_restore(
-        storage_path, storage_filesystem=cfg_init.external_fs
+    def __init__(
+        self,
+        lightning_cli_cls: Type[LightningCLI] = LightningCLI,
+        parser_kwargs: Optional[dict] = None,
+        args: ArgsType = None,
     ):
-        # if we can restore from a previous tuning run
-        # instantiate tuner from the stored state
-        logging.info(f"Restoring from previous tuning run at {storage_path}")
-        tuner = tune.Tuner.restore(
-            storage_path,
-            trainable,
-            resume_errored=True,
-            storage_filesystem=cfg_init.external_fs,
+        """
+        Args:
+            lightning_cli_cls:
+                The `LightningCLI` class to tune
+            parser_kwargs:
+                Additional arguments to pass to the ArgumentParser
+            args:
+                Arguments to parse. If None, `sys.argv` is used
+        """
+        self.lightning_cli_cls = lightning_cli_cls
+        self.parser = self.build_parser(parser_kwargs)
+        self.add_arguments_to_parser(self.parser)
+        self.config = self.parser.parse_args(args)
+
+    def build_parser(self, parser_kwargs):
+        parser = ArgumentParser(**parser_kwargs)
+        parser.add_argument("--config", action=ActionConfigFile)
+        parser.add_class_arguments(tune.Tuner, "tuner")
+        parser.add_function_arguments(ray.init, "ray_init")
+
+        parser.add_argument(
+            "--gpus_per_trial",
+            type=int,
+            default=0,
+            help="Number of GPUs to allocate per trial. "
+            "Will be passed to `tune.with_resources` "
+            "when wrapping the LightningCLI as a trainable.",
         )
-    else:
-        # otherwise, instantiate a new tuner from config
-        tuner = tune.Tuner(
-            trainable,
-            param_space=cfg_init.param_space,
-            tune_config=cfg_init.tune_config,
-            run_config=cfg_init.run_config,
+        parser.add_argument(
+            "--cpus_per_trial",
+            type=int,
+            default=1,
+            help="Number of CPU's to allocate per trial. "
+            "Will be passed to `tune.with_resources` "
+            "when wrapping the LightningCLI as a trainable.",
         )
 
-    results = tuner.fit()
+        parser.add_argument(
+            "lightning_args",
+            nargs=REMAINDER,
+            help='All arguments after the double dash "--"'
+            "are forwarded to the `lightning_cli_cls`",
+        )
+        return parser
 
-    ray.shutdown()
-    return results
+    def add_arguments_to_parser(self, parser: ArgumentParser) -> None:
+        """Implement to add extra arguments to the parser or link arguments.
 
+        Args:
+            parser: The parser object to which arguments can be added
 
-if __name__ == "__main__":
-    cli()
+        """
+
+    def build_trainable(self):
+        """
+        Construct a trainable function from the `LightningCLI`
+        class and arguments that is compatible with Ray Tune.
+        """
+        lightning_cli_cls = self.config.lightning_cli_cls
+        lightning_parser = capture_parser(lightning_cli_cls)
+        if lightning_parser._subcommands_action:
+            lightning_parser = (
+                lightning_parser._subcommands_action._name_parser_map["fit"]
+            )
+
+        if len(self.config.lightning_args) > 1:
+            lightning_cfg = lightning_parser.parse_args(
+                self.config.lightning_args[1:]
+            )
+        else:
+            lightning_cfg = lightning_parser.get_defaults()
+
+        callbacks = [self.config.tune_callback]
+        callbacks += lightning_cfg.get("trainer.callbacks") or []
+
+        lightning_cfg["trainer.callbacks"] = callbacks
+        fit_dump = lightning_parser.dump(lightning_cfg)
+
+        trainable = utils.get_trainable(
+            self.config.run_config.storage_path,
+            lightning_cli_cls,
+            fit_dump,
+            self.config.cpus_per_trial,
+            self.config.gpus_per_trial,
+        )
+        return trainable
+
+    def run(self):
+        trainable = self.build_trainable()
+
+        # instantiate tune related classes from config
+        # and parse the parameter space
+        cfg_init = self.parser.instantiate_classes(self.config)
+        utils.eval_tune_run_config(cfg_init.param_space)
+
+        # set up the storage path and filesystem
+        storage_path = self.config.run_config.storage_path
+        fs = fs_utils.setup_filesystem(storage_path)
+
+        # if this is an s3 path, strip out the prefix
+        storage_path = storage_path.removeprefix("s3://")
+        storage_path = os.path.join(storage_path, cfg_init.run_config.name)
+
+        # initialize ray
+        ray.init(**cfg_init.ray_init)
+
+        if tune.Tuner.can_restore(storage_path, storage_filesystem=fs):
+            # if we can restore from a previous tuning run
+            # instantiate tuner from the stored state
+            logging.info(
+                f"Restoring from previous tuning run at {storage_path}"
+            )
+            tuner = tune.Tuner.restore(
+                storage_path,
+                trainable,
+                resume_errored=True,
+                storage_filesystem=fs,
+            )
+        else:
+            # otherwise, instantiate a new tuner from config
+            tuner = tune.Tuner(
+                trainable,
+                param_space=cfg_init.tuner.param_space,
+                tune_config=cfg_init.tuner.tune_config,
+                run_config=cfg_init.tuner.run_config,
+            )
+
+        results = tuner.fit()
+
+        ray.shutdown()
+        return results
