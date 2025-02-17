@@ -29,19 +29,16 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.git
-  | \.tox
-  | _build
-  | dist
-  | docs
-)/
-'''
+extend-exclude = ["docs"]
 
-[tool.isort]
-multi_line_output = 3
-include_trailing_comma = true
+
+[tool.ruff.lint]
+mccabe = {"max-complexity" = 18}
+select = ["B", "C", "E", "F", "W",  "B9"]
+ignore = ["W605", "E203"]  # ignore for consistency with black
+
+# ignore asterisk imports and unused
+# import errors in __init__ files
+per-file-ignores =  {"**/__init__.py" = ["F401", "F403"]}
