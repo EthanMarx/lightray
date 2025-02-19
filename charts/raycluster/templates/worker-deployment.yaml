@@ -26,7 +26,7 @@ spec:
               - key: nvidia.com/gpu.memory
                 operator: Gt
                 values:
-                - {{ .Values.worker.min_gpu_memory | quote }}
+                - {{ .Values.worker.minGpuMemory | quote }}
       restartPolicy: Always
       volumes:
       - name: dshm
@@ -100,10 +100,10 @@ spec:
             limits:
               nvidia.com/gpu: {{ .Values.worker.gpu | quote }}
               cpu: {{ .Values.worker.cpu | quote }}
-              ephemeral-storage: 110Gi
+              ephemeral-storage: {{ .Values.worker.ephemeralStorage | quote }}
               memory: {{ .Values.worker.memory | quote }}
             requests:
               nvidia.com/gpu: {{ .Values.worker.gpu | quote }}
               cpu: {{ .Values.worker.cpu | quote }}
-              ephemeral-storage: 100Gi
+              ephemeral-storage: {{ .Values.worker.ephemeralStorage | quote }}
               memory: {{ .Values.worker.memory | quote }}
