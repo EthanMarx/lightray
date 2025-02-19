@@ -77,8 +77,10 @@ spec:
           volumeMounts:
             - mountPath: /dev/shm
               name: dshm
+          {{- if .Values.dev }}
             - mountPath: {{ .Values.gitRepo.mountPath }}
               name: {{ .Values.gitRepo.name }}-volume
+          {{- end }}
           env:
           - name: TUNE_MAX_PENDING_TRIALS_PG
             value: "64"
@@ -95,8 +97,8 @@ spec:
             limits:
               cpu: {{ .Values.head.cpu | quote }}
               memory: {{ .Values.head.memory | quote }}
-              ephemeral-storage: "100Gi"
+              ephemeral-storage: {{ .Values.head.ephemeralStorage | quote }}
             requests:
               cpu: {{ .Values.head.cpu | quote }}
               memory: {{ .Values.head.memory | quote }}
-              ephemeral-storage: "100Gi"
+              ephemeral-storage: {{ .Values.head.ephemeralStorage | quote }}
